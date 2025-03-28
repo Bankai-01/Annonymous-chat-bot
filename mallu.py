@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import nest_asyncio
@@ -5,10 +6,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMem
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from collections import defaultdict, deque
 
-# Bot Configuration
-BOT_TOKEN = "7636983079:AAGr35bB03asg2IYta-EnClzMX3FSa35ink"
-GROUP_IDS = [-1002572807793, -1002500642384, -1002673544700]
-GROUP_LINKS = ["https://t.me/bankai_offcial", "https://t.me/bankai_software", "https://t.me/bankai_bots"]
+# -------------------- Bot Configuration --------------------
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+GROUP_IDS = list(map(int, os.getenv("GROUP_IDS").split(',')))
+GROUP_LINKS = os.getenv("GROUP_LINKS").split(',')
 
 # Referral & Access Tracking
 referrals = defaultdict(set)
@@ -49,49 +51,13 @@ RULES_TEXT = (
     "🔴 **STRICTLY FOLLOW THESE RULES OR FACE PERMANENT BAN!**\n"
     "🔹 Breaking these rules may result in a **temporary or permanent ban** without warning!\n\n"
     "1️⃣ **NO SHARING PERSONAL INFORMATION**\n"
-    "   🔸 Your privacy is your responsibility!\n"
-    "   Do NOT share your phone number, email, home address, bank details, social media accounts, or any other private information.\n"
-    "   Never ask others for their personal details either.\n"
-    "   We are NOT responsible for any harm caused by sharing private details with strangers.\n"
-    "   If you violate this rule, your access to the bot may be revoked permanently.\n\n"
     "2️⃣ **NO HARASSMENT OR ABUSE**\n"
-    "   🔸 Respect others at all times!\n"
-    "   Do NOT send threats, insults, bullying messages, hate speech, racist remarks, sexist comments, or any offensive content.\n"
-    "   Sexual harassment and inappropriate messages are strictly prohibited!\n"
-    "   Violators will be immediately banned and reported if necessary.\n"
-    "   Keep the chat friendly, respectful, and safe for everyone.\n\n"
     "3️⃣ **NO SPAMMING OR PROMOTIONS**\n"
-    "   🔸 Spamming will result in an instant mute or ban!\n"
-    "   Do NOT send repeated messages, flood the chat, or spam emojis/stickers.\n"
-    "   Promoting businesses, products, services, Telegram groups, or external links is strictly forbidden.\n"
-    "   No self-promotion, advertisements, or referral links are allowed.\n\n"
     "4️⃣ **NO IMPERSONATION OR FRAUD**\n"
-    "   🔸 Be yourself, don’t pretend to be someone else!\n"
-    "   Do NOT impersonate other users, moderators, admins, or famous personalities.\n"
-    "   Scamming, phishing, or any fraudulent activities will result in a permanent ban and may be reported to authorities.\n"
-    "   Fake profiles and catfishing are strictly prohibited!\n\n"
     "5️⃣ **RESPECT EVERYONE**\n"
-    "   🔸 Treat others how you want to be treated!\n"
-    "   If someone asks you to stop a conversation, respect their decision and move on.\n"
-    "   No forcing, no manipulation, and no controlling others.\n"
-    "   If you feel uncomfortable, you have the right to leave the chat anytime.\n\n"
     "6️⃣ **NO ILLEGAL OR OFFENSIVE CONTENT**\n"
-    "   🔸 Legal and ethical behavior is mandatory!\n"
-    "   Do NOT share illegal, violent, explicit, or disturbing content.\n"
-    "   Sharing hacking tools, drugs, weapons, or any prohibited material will result in a permanent ban.\n"
-    "   Breaking this rule may lead to legal consequences.\n\n"
-    "7️⃣ **BOT ADMINS HAVE FULL CONTROL**\n"
-    "   🔸 Admin decisions are FINAL!\n"
-    "   Admins have the right to mute, ban, or remove any user at any time without prior notice.\n"
-    "   If you violate any rule, you may be permanently blocked from using the bot.\n"
-    "   Arguing with admins or challenging their decisions will not be tolerated.\n\n"
-    "❗ **IMPORTANT DISCLAIMER** ❗\n"
-    "This bot does not store your messages permanently.\n"
-    "The admin is NOT responsible for any personal data shared. Use the bot at your own risk.\n"
-    "We are NOT responsible for any issues, damages, or consequences caused by using this bot.\n"
-    "If you encounter any issues, report them immediately to the admin.\n\n"
-    "By using this bot, you agree to all these rules.\n\n"
-    "🚨 **Violators will face an IMMEDIATE BAN without warning!** 🚨\n\n"
+    "7️⃣ **BOT ADMINS HAVE FULL CONTROL**\n\n"
+    "✅ **By using this bot, you agree to all these rules.**\n\n"
     "**Developer: Bankai**"
 )
 
@@ -110,6 +76,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(RULES_TEXT)
     confirm_button = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Confirm & Enter", callback_data="confirm")]])
     await update.message.reply_text("✅ **Click below to enter the referral system!**", reply_markup=confirm_button)
+
 # -------------------- Confirm Command --------------------
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -142,6 +109,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📌 You can **send this link to anyone** (users, groups, or channels)!",
         reply_markup=reply_markup
     )
+
 # -------------------- Check Referrals --------------------
 
 async def check_referrals(update: Update, context: ContextTypes.DEFAULT_TYPE):
