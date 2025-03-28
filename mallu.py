@@ -7,11 +7,10 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 from collections import defaultdict, deque
 
 # -------------------- Bot Configuration --------------------
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-GROUP_IDS = list(map(int, os.getenv("GROUP_IDS").split(',')))
-GROUP_LINKS = os.getenv("GROUP_LINKS").split(',')
-
+# Use environment variables with fallback values
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7636983079:AAGr35bB03asg2IYta-EnClzMX3FSa35ink")
+GROUP_IDS = list(map(int, os.getenv("GROUP_IDS", "-1002572807793,-1002500642384,-1002673544700").split(',')))
+GROUP_LINKS = os.getenv("GROUP_LINKS", "https://t.me/bankai_offcial,https://t.me/bankai_software,https://t.me/bankai_bots").split(',')
 # Referral & Access Tracking
 referrals = defaultdict(set)
 allowed_users = set()
