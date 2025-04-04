@@ -18,8 +18,8 @@ nest_asyncio.apply()
 logging.basicConfig(level=logging.INFO)
 
 # **Firebase Credentials & Initialization**
-cred = credentials.Certificate("firebase_credentials.json")  # JSON key file
-firebase_admin.initialize_app(cred, {"databaseURL": "https://your-firebase-url.firebaseio.com"})
+cred = credentials.Certificate("telebot-80496-firebase-adminsdk-fbsvc-e4e7eec121.json")  # JSON key file
+firebase_admin.initialize_app(cred, {"databaseURL": "https://console.firebase.google.com/u/0/project/telebot-80496/database/telebot-80496-default-rtdb/data/~2F"})
 users_ref = db.reference("users")
 
 # **Bot Setup**
