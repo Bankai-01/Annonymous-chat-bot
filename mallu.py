@@ -1,49 +1,44 @@
 import asyncio
-import logging
 import nest_asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-from collections import defaultdict, deque
+import logging
+import firebase_admin
+from firebase_admin import credentials, db
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
+from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram.utils import executor
 
-# Bot Configuration
-BOT_TOKEN = "7636983079:AAGr35bB03asg2IYta-EnClzMX3FSa35ink"
-GROUP_IDS = [-1002572807793, -1002500642384, -1002673544700]
+# **Apply Nest Asyncio for Async Compatibility**
+nest_asyncio.apply()
+
+# **Logging Configuration**
+logging.basicConfig(level=logging.INFO)
+
+# **Firebase Credentials & Initialization**
+cred = credentials.Certificate("firebase_credentials.json")  # JSON key file
+firebase_admin.initialize_app(cred, {"databaseURL": "https://your-firebase-url.firebaseio.com"})
+users_ref = db.reference("users")
+
+# **Bot Setup**
+TOKEN = "7484928987:AAF9uRA6tz8xQBwEgXVrhYH6_xHM9RMYqZg"
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
+dp.middleware.setup(LoggingMiddleware())
+
+# **Group Details**
+GROUP_IDS = [-1002572807793, -1002500642384, -1002673544700]  # Multiple groups
 GROUP_LINKS = ["https://t.me/bankai_offcial", "https://t.me/bankai_software", "https://t.me/bankai_bots"]
 
-# Referral & Access Tracking
-referrals = defaultdict(set)
-allowed_users = set()
-checked_users = {}
-waiting_users = deque()
-active_chats = {}
+# **Constants**
+DEFAULT_CHAT_LIMIT = 15
+REFERRAL_BONUS = 100
+POINTS_PER_REFER = 1
+GENDER_UNLOCK_POINTS = 10
 
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-
-# -------------------- Check Group Membership --------------------
-
-async def is_user_in_groups(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if the user is in all required groups. If left, remove access."""
-    
-    async def check_group(group_id):
-        try:
-            chat_member = await context.bot.get_chat_member(group_id, user_id)
-            return chat_member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]
-        except Exception as e:
-            logging.error(f"Error checking group {group_id}: {e}")
-            return False
-
-    results = await asyncio.gather(*(check_group(gid) for gid in GROUP_IDS))
-    is_member = all(results)
-    
-    if not is_member:
-        allowed_users.discard(user_id)
-        checked_users.pop(user_id, None)
-    
-    checked_users[user_id] = is_member
-    return is_member
-
-# -------------------- Rules --------------------
-
+# **Rules Text**
 RULES_TEXT = (
     "🚨 **Malayalie Chat Bot – Rules & Guidelines** 🚨\n\n"
     "🔴 **STRICTLY FOLLOW THESE RULES OR FACE PERMANENT BAN!**\n"
@@ -95,136 +90,49 @@ RULES_TEXT = (
     "**Developer: Bankai**"
 )
 
-# -------------------- Start Command --------------------
+# **Inline Keyboard for Rules Confirmation**
+def rules_confirmation_keyboard():
+    keyboard = InlineKeyboardMarkup()
+    keyboard.add(InlineKeyboardButton("✅ I Accept the Rules", callback_data="accept_rules"))
+    return keyboard
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ Start Command - Checks Group Membership First """
-    user_id = update.message.from_user.id
+# **Check If User is in Any Group**
+async def is_user_in_group(user_id):
+    try:
+        for group_id in GROUP_IDS:
+            member = await bot.get_chat_member(group_id, user_id)
+            if member.status in ["member", "administrator", "creator"]:
+                return True
+    except Exception as e:
+        logging.error(f"Error checking group membership: {e}")
+    return False
 
-    if not await is_user_in_groups(user_id, context):
-        join_buttons = [[InlineKeyboardButton(f"🔗 Join Group {i+1}", url=link)] for i, link in enumerate(GROUP_LINKS)]
-        reply_markup = InlineKeyboardMarkup(join_buttons)
-        await update.message.reply_text("🚨 You must **join all required groups** before using this bot!", reply_markup=reply_markup)
+# **Handle Start Command**
+@dp.message_handler(commands=["start"])
+async def start_command(message: types.Message):
+    user_id = message.from_user.id
+
+    # **Check If User Has Already Accepted Rules**
+    user_data = users_ref.child(str(user_id)).get()
+    if user_data and user_data.get("accepted_rules"):
+        await message.reply("✅ You have already accepted the rules! Welcome back.", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("💬 Start Chat")))
         return
-    
-    await update.message.reply_text(RULES_TEXT)
-    confirm_button = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Confirm & Enter", callback_data="confirm")]])
-    await update.message.reply_text("✅ **Click below to enter the referral system!**", reply_markup=confirm_button)
-# -------------------- Confirm Command --------------------
 
-async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ Handles inline confirm button click """
-    query = update.callback_query
+    # **Send Rules & Ask for Confirmation**
+    await message.reply(RULES_TEXT, reply_markup=rules_confirmation_keyboard())
+
+# **Handle Rules Acceptance**
+@dp.callback_query_handler(lambda query: query.data == "accept_rules")
+async def accept_rules(query: types.CallbackQuery):
     user_id = query.from_user.id
-
-    await query.answer()  # Acknowledge the button click
-
-    if not await is_user_in_groups(user_id, context):
-        join_buttons = [[InlineKeyboardButton(f"🔗 Join Group {i+1}", url=link)] for i, link in enumerate(GROUP_LINKS)]
-        reply_markup = InlineKeyboardMarkup(join_buttons)
-        await query.message.reply_text("🚨 You must **join all required groups** before confirming!", reply_markup=reply_markup)
-        return
+    users_ref.child(str(user_id)).update({"accepted_rules": True})
     
-    referral_link = f"https://t.me/{context.bot.username}?start={user_id}"
+    await query.message.edit_text("✅ Thank you for accepting the rules! You can now use the bot.", reply_markup=None)
+    await bot.send_message(user_id, "💬 Click below to start chatting!", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True).add(KeyboardButton("💬 Start Chat")))
 
-    if user_id in allowed_users:
-        await query.message.reply_text("✅ You already have access. Start chatting!")
-        return
-
-    keyboard = [[InlineKeyboardButton("📢 Share & Unlock", switch_inline_query=referral_link)],
-                [InlineKeyboardButton("✅ Check Referral Status", callback_data="check_referrals")]]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await query.message.reply_text(
-        f"🎯 To unlock the bot, **refer 2 users** using your link:\n"
-        f"🔗 {referral_link}\n\n"
-        f"📌 You can **send this link to anyone** (users, groups, or channels)!",
-        reply_markup=reply_markup
-    )
-# -------------------- Check Referrals --------------------
-
-async def check_referrals(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Checks if the user has met referral requirements"""
-    user_id = update.callback_query.from_user.id
-
-    if user_id in allowed_users:
-        await update.callback_query.answer("✅ You already have access!")
-        return
-    
-    referred_users = referrals[user_id]
-    
-    if len(referred_users) >= 2:
-        allowed_users.add(user_id)
-        await update.callback_query.answer("🎉 Referral requirement met! You can now chat.")
-    else:
-        await update.callback_query.answer(f"🚨 You need {2 - len(referred_users)} more referrals!")
-
-# -------------------- Find Chat Partner --------------------
-
-async def find_partner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ Matches users for anonymous chat """
-    user_id = update.message.from_user.id
-
-    if user_id in active_chats:
-        await update.message.reply_text("❌ You are already in a chat. Use /leave to exit first.")
-        return
-
-    if waiting_users:
-        partner_id = waiting_users.popleft()
-        active_chats[user_id] = partner_id
-        active_chats[partner_id] = user_id
-
-        await context.bot.send_message(user_id, "✅ Match found! Start chatting.")
-        await context.bot.send_message(partner_id, "✅ Match found! Start chatting.")
-    else:
-        waiting_users.append(user_id)
-        await update.message.reply_text("🔍 Searching for a chat partner... Please wait.")
-
-# -------------------- Leave Chat --------------------
-
-async def leave_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ Disconnects a user from an active chat """
-    user_id = update.message.from_user.id
-
-    if user_id in active_chats:
-        partner_id = active_chats.pop(user_id)
-        active_chats.pop(partner_id, None)
-
-        await context.bot.send_message(partner_id, "❌ Your chat partner has left.")
-        await update.message.reply_text("✅ You have left the chat.")
-    else:
-        await update.message.reply_text("❌ You are not in a chat.")
-
-# -------------------- Handle Messages --------------------
-
-async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ Handles messages between matched users """
-    user_id = update.message.from_user.id
-
-    if user_id not in active_chats:
-        await update.message.reply_text("❌ You are not in a chat. Use /find to find a partner.")
-        return
-
-    partner_id = active_chats[user_id]
-    await context.bot.send_message(partner_id, update.message.text)
-
-# -------------------- Bot Initialization --------------------
-
-async def main():
-    """ Initialize Bot """
-    app = Application.builder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(confirm, pattern="confirm"))
-    app.add_handler(CommandHandler("find", find_partner))
-    app.add_handler(CommandHandler("leave", leave_chat))
-    app.add_handler(CallbackQueryHandler(check_referrals, pattern="check_referrals"))
-    app.add_handler(MessageHandler(filters.TEXT, handle_messages))
-
-    print("🤖 Bankai Bot is running...")
-    await app.run_polling()
-
+# **Run Bot**
 if __name__ == "__main__":
-    nest_asyncio.apply()
-    asyncio.run(main())
+    try:
+        executor.start_polling(dp, skip_updates=True)
+    except Exception as e:
+        logging.error(f"Bot startup error: {e}")
