@@ -1,6 +1,8 @@
-aiogram
+asyncio
+nest_asyncio
+logging
 firebase-admin
+aiogram
 python-dotenv
 pytz
-asyncio
 requests
