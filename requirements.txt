@@ -2,7 +2,7 @@ asyncio
 nest_asyncio
 logging
 firebase-admin
-aiogram==2.21.1
+aiogram==2.21
 python-dotenv
 pytz
 requests
