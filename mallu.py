@@ -23,7 +23,7 @@ firebase_admin.initialize_app(cred, {"databaseURL": "https://console.firebase.go
 users_ref = db.reference("users")
 
 # **Bot Setup**
-TOKEN = "7484928987:AAF9uRA6tz8xQBwEgXVrhYH6_xHM9RMYqZg"
+TOKEN = "7636983079:AAGr35bB03asg2IYta-EnClzMX3FSa35ink"
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 dp.middleware.setup(LoggingMiddleware())
